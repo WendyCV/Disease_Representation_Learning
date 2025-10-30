@@ -1,0 +1,10 @@
+train: train
+val: val
+test: test
+
+# Classes
+names: 
+  0: algal_leaf_spot
+  1: leaf_blight
+  2: leaf_spot
+  3: no_disease

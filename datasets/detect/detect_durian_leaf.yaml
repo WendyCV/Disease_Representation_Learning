@@ -1,0 +1,19 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# PASCAL VOC dataset http://host.robots.ox.ac.uk/pascal/VOC by University of Oxford
+# Documentation: # Documentation: https://docs.ultralytics.com/datasets/detect/voc/
+# Example usage: yolo train data=VOC.yaml
+# parent
+# ├── ultralytics
+# └── datasets
+#     └── VOC  ← downloads here (2.8 GB)
+
+# train images (relative to 'path')
+train: ../train/images
+# val images (relative to 'path')
+val: ../valid/images
+# test images (optional)
+test: ../test/images
+
+nc: 4
+# Classes
+names: [algal_leaf_spot, no_disease, leaf_blight, leaf_spot]
