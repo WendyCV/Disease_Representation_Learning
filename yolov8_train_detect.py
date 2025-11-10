@@ -123,72 +123,35 @@ if __name__ == '__main__':
         "pretrained": False,          # ✅ 使用自定义预训练（CLR）
         "save_period": 10,            # ✅ 每10 epoch保存一次权重
     }
-    # ===============================
-    # pool最优(P=0.961, R=0.775, mAP50=0.863)
-    # ===============================
-    # v8.2.98
-    if args.spp_mode in ("pool", "dilated", "hybrid"):
-        kwargs.update({
-            # ===============================
-            # 🤖 数据增强与稳定性
-            # ===============================
-            "optimizer": "AdamW",         # ✅ 更稳定，适合小数据+对比学习模型
-            "lr0": 0.0032,                # ✅ 初始学习率（经验最佳区间 0.002–0.004）
-            "lrf": 0.05,                  # ✅ cosine 衰减最低学习率
-            "momentum": 0.937,            # ✅ SGD 优化惯性，与 YOLOv8 默认一致
-            "weight_decay": 0.00020,      # ✅ 正则化，防止过拟合
-            "cos_lr": True,               # ✅ 余弦调度
-            "warmup_epochs": 3,           # ✅ 前3轮线性升温，避免早期震荡
-
-            # ===============================
-            # 🎨 数据增强与稳定性
-            # ===============================
-            "mosaic": 0.10,               # ✅ 保留轻度 Mosaic（>0.3 容易噪声）
-            "copy_paste": 0.05,           # ✅ 轻量级 Copy-Paste，有助稀有类
-            "mixup": 0.0,                 # ❌ 禁止 Mixup（对病斑检测无益）
-            "degrees": 0.0, "shear": 0.0,
-            "translate": 0.07, "scale": 0.60,
-            "hsv_h": 0.015, "hsv_s": 0.30, "hsv_v": 0.30,
-            "fliplr": 0.5, "flipud": 0.1, # ✅ 翻转概率控制
-            "close_mosaic": int(0.7 * args.epochs),
-
-            # ===============================
-            # ⚖️ 损失权重微调
-            # ===============================
-            "cls": 0.70, "box": 1.55, "dfl": 1.25,  # ✅ 更强调定位精度
-            "iou": 0.55,
-        })
-    # hybrid最优(P=0.935, R=0.842, mAP50=0.903)
     if args.spp_mode == "hybrid":
-        # v8.2.98
         kwargs.update({
             # ===============================
             # 🎨 数据增强与稳定性
             # ===============================
-            "copy_paste": 0.06,
-            "hsv_h": 0.015, "hsv_s": 0.32, "hsv_v": 0.32,
-            "close_mosaic": int(0.65 * args.epochs),
+            "copy_paste": 0.00, "mosaic": 0.30, 
+            "hsv_h": 0.015, "hsv_s": 0.24, "hsv_v": 0.30,
+            "close_mosaic": int(0.45 * args.epochs),
             # ===============================
             # ⚖️ 损失权重微调
             # ===============================
-            "cls": 0.70, "box": 1.50, "dfl": 1.20,
+            "kobj": 1.02, 
+            "box": 2.2, "dfl": 1.50, 
             "iou": 0.60,
         })
-    # dilated最优(P=0.961, R=0.824, mAP50=0.896)
     elif args.spp_mode == "dilated":
-        # v8.2.98
         kwargs.update({
             # ===============================
             # 🎨 数据增强与稳定性
             # ===============================
-            "copy_paste": 0.08,
-            "hsv_h": 0.015, "hsv_s": 0.32, "hsv_v": 0.32,
-            "close_mosaic": int(0.55 * args.epochs),
+            "copy_paste": 0.0, "mosaic": 0.30, 
+            "hsv_h": 0.015, "hsv_s": 0.25, "hsv_v": 0.30,
+            "close_mosaic": int(0.25 * args.epochs),
             # ===============================
             # ⚖️ 损失权重微调
             # ===============================
-            "cls": 0.65, "box": 1.40, "dfl": 1.20,
-            "iou": 0.58
+            "kobj": 1.00,
+            "box": 3.0, "dfl": 1.50, 
+            "iou": 0.62,
         })
     # 开始训练
     dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
