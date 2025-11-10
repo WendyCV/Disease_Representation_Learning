@@ -1,7 +1,9 @@
 all = [
-    "C2f",
-    "SPPF",
-    "C2fWithAttention"
+    "YOLO", "Detect",
+    "C2f", "SPPF", "C2fWithAttention",  #v8
+    "RepNCSPELAN4", "SPPELAN",  #v9
+    "C2fCIB", "PSA",    #v10
+    "C2PSA",    #v11
     # 适合检测任务
     "CBAM", "CA",
     # 适合分类任务
@@ -13,8 +15,13 @@ all = [
 import torch
 import torch.nn as nn
 from typing import Optional
+from ultralytics import YOLO
 from ultralytics.nn.modules.conv import CBAM
 from ultralytics.nn.modules.block import C2f, SPPF
+from ultralytics.nn.modules.block import RepNCSPELAN4, SPPELAN
+from ultralytics.nn.modules.block import C2fCIB, PSA
+from ultralytics.nn.modules.block import C2PSA
+from ultralytics.nn.modules.head import Detect
 from ultralytics.models.yolo.detect.train import DetectionTrainer
 from ultralytics.models.yolo.classify.train import ClassificationTrainer
 
@@ -25,7 +32,7 @@ from .fft import FFT
 
 class C2fWithAttention(nn.Module):
     def __init__(self, c2f:C2f, attn_module: Optional[nn.Module] = None):
-        super().__init__()
+        super(C2fWithAttention, self).__init__()
         self.c2f = c2f
         self.attn = attn_module if attn_module is not None else nn.Identity()
 
@@ -109,6 +116,11 @@ class SelfDetectionTrainer(DetectionTrainer):
             if weights: _model.load(weights)
             # 再修改模型
             _model = config_model(_model)
+        # 调整权重names
+        _model = adapt_label_names(
+            _model=_model, 
+            class_names=["algal_leaf_spot", "no_disease", "leaf_blight", "leaf_spot"]
+        )
         # 之后返回
         return _model
 
@@ -124,11 +136,10 @@ def config_model(_model):
     if hasattr(_model, ATTR_NAME): return _model
     # 将所有的C2f都增加attention模块
     for child_idx, child in enumerate(_model.model):
-        # 过滤非C2f模块
-        if not isinstance(child, C2f): continue
         # 调整C2f模块
-        new_child = C2fWithAttention(child)
-        _model.model[child_idx] = new_child
+        if isinstance(child, C2f):
+            new_child = C2fWithAttention(child)
+            _model.model[child_idx] = new_child
     # 设定属性
     setattr(_model, ATTR_NAME, True)
     # 返回模型

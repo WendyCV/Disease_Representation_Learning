@@ -41,8 +41,8 @@ if __name__ == '__main__':
     with open(yaml_path, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     args.image_dir = yaml_path.joinpath(data["train"]).resolve()
-    args.config = make_abs_path("models/yolov8m.yaml")
-    args.pretrain = make_abs_path("pretrains/detect/yolov8m.pt")
+    # args.config = make_abs_path("models/yolov8m.yaml")
+    # args.pretrain = make_abs_path("pretrains/detect/yolov8m.pt")
     args.output_dir = make_abs_path("runs/detect/clr_train")
     # 参数batch_size=16，image_size=640
     # clr_model_train(args, pre_train=pre_train)
@@ -60,11 +60,14 @@ if __name__ == '__main__':
         ] + cmd_args, shell=True, check=True)
     # 继续训练yolov8的下游detect任务
     if (skip_training or result.returncode == 0) and args.train_downstream:
-        cmd_args = ["--task", args.task,
-            "--proj_dims", str(args.proj_dims),
-            "--clr_version", args.clr_version,
+        cmd_args = [
+            "--task", args.task,
             "--config", Path(args.config).name,
             "--pretrain", Path(args.pretrain).name,
+            "--yolo_version", args.yolo_version,
+            "--proj_dims", str(args.proj_dims),
+            "--clr_version", args.clr_version,
+            "--spp_mode", args.spp_mode,
             "--clr_pretrain", "best_pretrain.pt",
             "--dir_suffix", args.dir_suffix,
             "--data_path", args.data_path,
@@ -75,6 +78,7 @@ if __name__ == '__main__':
         ]
         if args.visualizer: cmd_args.append("--visualizer")
         if args.predict: cmd_args.append("--predict")
+        if args.skip_sppf: cmd_args.append("--skip_sppf")
         subprocess.run([
             sys.executable,  # 当前解释器路径
             "yolov8_train_detect.py",

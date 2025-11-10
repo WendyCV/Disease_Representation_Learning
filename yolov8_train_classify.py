@@ -10,7 +10,7 @@ import os
 os.environ['NO_ALBUMENTATIONS_UPDATE']='1'
 
 from yolov8_utils import make_abs_path, release_memory
-from ultralytics import YOLO
+from attention import YOLO
 from attention import C2f, C2fWithAttention
 from attention import SelfClassificationTrainer, config_model, adapt_label_names
 from attention import SE, ECA

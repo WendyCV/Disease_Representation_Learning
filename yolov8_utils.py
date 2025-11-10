@@ -704,7 +704,7 @@ def poly2bbox(image_in, label_in, out_dir):
 
 
 def graft_detect_header(from_model, to_model, save_path):
-    from ultralytics.nn.modules.head import Detect
+    from attention import Detect
     def _find_detect(model):
         for name, module in model.named_modules():
             if isinstance(module, Detect):

@@ -10,8 +10,11 @@ import os
 os.environ['NO_ALBUMENTATIONS_UPDATE']='1'
 
 from yolov8_utils import make_abs_path, release_memory
-from ultralytics import YOLO
+from attention import YOLO
 from attention import C2f, C2fWithAttention, SPPF
+from attention import RepNCSPELAN4, SPPELAN
+from attention import C2fCIB, PSA
+from attention import C2PSA
 from attention import SelfDetectionTrainer, config_model, adapt_label_names
 from attention import CBAM, CA
 
@@ -32,18 +35,38 @@ def load_model(model_path, task="detect", pretrain_path=None, modify_model=False
     # 返回模型
     return _model
 
-def get_backbone(_model, skip_sppf=False):
+def get_backbone(_model, skip_sppf=True, yolo_version="v8"):
     # 获取backbone
-    BACKBONE_INDEX = 9 if skip_sppf else 10
+    if yolo_version == "v8":
+        BACKBONE_INDEX = 9 if skip_sppf else 10
+        layer_indices = [4, 6, BACKBONE_INDEX-1]
+    elif yolo_version == "v9":
+        BACKBONE_INDEX = 9 if skip_sppf else 10
+        layer_indices = [4, 6, BACKBONE_INDEX-1]
+    elif yolo_version == "v10":
+        BACKBONE_INDEX = 9 if skip_sppf else 11
+        layer_indices = [4, 6, BACKBONE_INDEX-1]
+    elif yolo_version == "v11":
+        BACKBONE_INDEX = 9 if skip_sppf else 11
+        layer_indices = [4, 6, BACKBONE_INDEX-1]
+    else:
+        _error_ = f"不支持版本{yolo_version}, skip_sppf={skip_sppf}"
+        raise RuntimeError(_error_)
+    # 开始获取
     backbone = _model.model.model[:BACKBONE_INDEX]
-    layer_indices = [4, 6, BACKBONE_INDEX-1]
     layers_dims = []
     for layer_indice in layer_indices:
         layer = backbone[layer_indice]
-        if not (isinstance(layer, SPPF) or isinstance(layer, C2f) or isinstance(layer, C2fWithAttention)):
-            raise RuntimeError("模型加载错误，detect模型不正确，请检查")
+        if not (isinstance(layer, SPPF) or isinstance(layer, C2f) or isinstance(layer, C2fWithAttention) 
+                or isinstance(layer, RepNCSPELAN4) or isinstance(layer, SPPELAN)
+                or isinstance(layer, C2PSA) or isinstance(layer, PSA)):
+            _error_ = f"模型加载错误, detect模型不正确, 请检查{layer_indice}:{type(layer)}"
+            raise RuntimeError(_error_)
         layers_dims.append(
-            layer.out_channels if isinstance(layer, C2fWithAttention) else layer.cv2.conv.out_channels
+            layer.out_channels 
+            if isinstance(layer, C2fWithAttention)
+            else (layer.cv4.conv.out_channels if isinstance(layer, RepNCSPELAN4) else (layer.cv5.conv.out_channels if isinstance(layer, SPPELAN) 
+            else layer.cv2.conv.out_channels))
         )
     return backbone, layers_dims, layer_indices
 
@@ -60,7 +83,10 @@ if __name__ == '__main__':
     """
     parser = argparse.ArgumentParser(description="训练YOLOv8分类模型")
     parser.add_argument("--task", type=str, default="detect", choices=["detect"], help="训练任务类型")
+    parser.add_argument("--skip_sppf", action='store_true', help="是否跳过SPPF层不训练")
+    parser.add_argument("--yolo_version", type=str, default="v8", choices=["v8", "v9", "v10", "v11"], help="yolo版本选择")
     parser.add_argument("--proj_dims", type=int, default=256, help="投影头特征维度")
+    parser.add_argument("--spp_mode", type=str, default="", choices=["", "pool", "dilated", "hybrid"], help="fine-tuning参数选择")
     parser.add_argument("--clr_version", type=str, default="v2", choices=["v1", "v2"], help="clr版本选择")
     parser.add_argument("--config", type=str, default="yolov8m.yaml", help="YAML配置")
     parser.add_argument("--pretrain", type=str, default="yolov8m.pt", help="预训练权重")
@@ -74,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument("--visualizer", action='store_true', help="是否输出backbone可视化结果")
     parser.add_argument("--predict", action='store_true', help="是否输出predict&val结果")
     args = parser.parse_args()
+    args.batch_size = min(64, args.batch_size) if args.yolo_version == "v8" else (min(32, args.batch_size) if args.yolo_version == "v9" else min(16, args.batch_size))
     print("[RUN-args]:", args)
     # 获取参数开始训练
     kwargs = { 
@@ -85,12 +112,84 @@ if __name__ == '__main__':
         "workers": min(os.cpu_count() // 2, 8),
         "save": True, "exist_ok": True, "cache": "disk",
         "freeze": 0, "seed": 42,
-        # 训练参数
-        "cls": 0.70, "box": 1.45, "dfl": 1.25,
-        "mosaic": 0.10, "copy_paste": 0.05, "translate": 0.07, "scale": 0.60,
-        "close_mosaic": int(0.70 * args.epochs),
-        "iou": 0.55,
+
+        # ===============================
+        # 🧩 训练稳定性
+        # ===============================
+        "auto_augment": None, 
+        "erasing": 0.0, 
+        "deterministic": True,
+        "amp": True,                  # ✅ 混合精度训练，节省显存
+        "pretrained": False,          # ✅ 使用自定义预训练（CLR）
+        "save_period": 10,            # ✅ 每10 epoch保存一次权重
     }
+    # ===============================
+    # pool最优(P=0.961, R=0.775, mAP50=0.863)
+    # ===============================
+    # v8.2.98
+    if args.spp_mode in ("pool", "dilated", "hybrid"):
+        kwargs.update({
+            # ===============================
+            # 🤖 数据增强与稳定性
+            # ===============================
+            "optimizer": "AdamW",         # ✅ 更稳定，适合小数据+对比学习模型
+            "lr0": 0.0032,                # ✅ 初始学习率（经验最佳区间 0.002–0.004）
+            "lrf": 0.05,                  # ✅ cosine 衰减最低学习率
+            "momentum": 0.937,            # ✅ SGD 优化惯性，与 YOLOv8 默认一致
+            "weight_decay": 0.00020,      # ✅ 正则化，防止过拟合
+            "cos_lr": True,               # ✅ 余弦调度
+            "warmup_epochs": 3,           # ✅ 前3轮线性升温，避免早期震荡
+
+            # ===============================
+            # 🎨 数据增强与稳定性
+            # ===============================
+            "mosaic": 0.10,               # ✅ 保留轻度 Mosaic（>0.3 容易噪声）
+            "copy_paste": 0.05,           # ✅ 轻量级 Copy-Paste，有助稀有类
+            "mixup": 0.0,                 # ❌ 禁止 Mixup（对病斑检测无益）
+            "degrees": 0.0, "shear": 0.0,
+            "translate": 0.07, "scale": 0.60,
+            "hsv_h": 0.015, "hsv_s": 0.30, "hsv_v": 0.30,
+            "fliplr": 0.5, "flipud": 0.1, # ✅ 翻转概率控制
+            "close_mosaic": int(0.7 * args.epochs),
+
+            # ===============================
+            # ⚖️ 损失权重微调
+            # ===============================
+            "cls": 0.70, "box": 1.55, "dfl": 1.25,  # ✅ 更强调定位精度
+            "iou": 0.55,
+        })
+    # hybrid最优(P=0.935, R=0.842, mAP50=0.903)
+    if args.spp_mode == "hybrid":
+        # v8.2.98
+        kwargs.update({
+            # ===============================
+            # 🎨 数据增强与稳定性
+            # ===============================
+            "copy_paste": 0.06,
+            "hsv_h": 0.015, "hsv_s": 0.32, "hsv_v": 0.32,
+            "close_mosaic": int(0.65 * args.epochs),
+            # ===============================
+            # ⚖️ 损失权重微调
+            # ===============================
+            "cls": 0.70, "box": 1.50, "dfl": 1.20,
+            "iou": 0.60,
+        })
+    # dilated最优(P=0.961, R=0.824, mAP50=0.896)
+    elif args.spp_mode == "dilated":
+        # v8.2.98
+        kwargs.update({
+            # ===============================
+            # 🎨 数据增强与稳定性
+            # ===============================
+            "copy_paste": 0.08,
+            "hsv_h": 0.015, "hsv_s": 0.32, "hsv_v": 0.32,
+            "close_mosaic": int(0.55 * args.epochs),
+            # ===============================
+            # ⚖️ 损失权重微调
+            # ===============================
+            "cls": 0.65, "box": 1.40, "dfl": 1.20,
+            "iou": 0.58
+        })
     # 开始训练
     dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
     model_path = Path(make_abs_path("models")).joinpath(args.config)
@@ -103,6 +202,9 @@ if __name__ == '__main__':
     )
     if osp.exists(clr_pretrain_path): 
         _model.load(clr_pretrain_path)
+        kwargs.update({
+            "pretrained": False,
+        })
     print(f"模型加载完毕，已加载{clr_pretrain_path if osp.exists(clr_pretrain_path) else pretrain_path}")
     # 设为 channels_last；通常能省 5–10% 显存
     # _model = _model.to(memory_format=torch.channels_last)
@@ -110,8 +212,6 @@ if __name__ == '__main__':
     if args.dir_suffix and args.dir_suffix != "":
         kwargs.update({
             "name": f"train_{args.dir_suffix}",
-            # "image_weights": True,
-            "pretrained": False,
         })
     data_path = Path(make_abs_path("datasets")).joinpath(args.task).joinpath(args.data_path)
     # 开始训练
@@ -131,15 +231,22 @@ if __name__ == '__main__':
         # 计算backbone可视化
         import sys
         import subprocess
-        subprocess.run([
-            sys.executable,  # 当前解释器路径
-            "yolov8_backbone_visualizer.py",
+        cmd_args = [
             "--task", args.task,
+            "--config", args.config,
+            "--pretrain", args.pretrain,
+            "--yolo_version", args.yolo_version,
             "--proj_dims", str(args.proj_dims),
             "--clr_version", args.clr_version,
             "--dir_suffix", args.dir_suffix,
-            "--save_only", "--use_best_pretrain",
-        ], shell=True, check=True)
+            "--save_only", 
+            "--use_best_pretrain",
+        ]
+        if args.skip_sppf: cmd_args.append("--skip_sppf")
+        subprocess.run([
+            sys.executable,  # 当前解释器路径
+            "yolov8_backbone_visualizer.py",
+        ] + cmd_args, shell=True, check=True)
     if args.predict:
         # 计算predict & val结果
         import sys
@@ -147,5 +254,6 @@ if __name__ == '__main__':
         subprocess.run([
             sys.executable,  # 当前解释器路径
             "yolov8_predict_detect.py",
+            "--config", args.config,
             "--dir_suffix", args.dir_suffix,
         ], shell=True, check=True)

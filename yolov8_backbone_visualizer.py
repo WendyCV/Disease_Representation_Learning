@@ -233,6 +233,10 @@ class BackboneVisualizer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="backbone可视化")
     parser.add_argument("--task", type=str, default="detect", choices=["classify", "detect"], help="训练模型类别")
+    parser.add_argument("--skip_sppf", action='store_true', help="是否跳过SPPF层不训练")
+    parser.add_argument("--yolo_version", type=str, default="v8", choices=["v8", "v9", "v10", "v11"], help="yolo版本选择")
+    parser.add_argument("--config", type=str, default="yolov8m.yaml", help="YAML配置")
+    parser.add_argument("--pretrain", type=str, default="yolov8m.pt", help="预训练权重")
     parser.add_argument("--proj_dims", type=int, default=256, help="投影头特征维度")
     parser.add_argument("--clr_version", type=str, default="v2", choices=["v1", "v2"], help="clr版本选择")
     parser.add_argument("--dir_suffix", type=str, default="", help="预训练权重目录后缀")
@@ -252,8 +256,8 @@ if __name__ == '__main__':
         dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
         visualizer_cfg = {
             "task": "detect",
-            "model_path": make_abs_path("models/yolov8m.yaml"),
-            "pretrain": make_abs_path("pretrains/detect/yolov8m.pt"),
+            "model_path": make_abs_path(f"models/{args.config}"),
+            "pretrain": make_abs_path(f"pretrains/detect/{args.pretrain}"),
             "best_pretrain": make_abs_path(f"runs/detect/train{dir_suffix}/weights/best.pt"),
             "clr_pretrain": make_abs_path(f"runs/detect/clr_train{dir_suffix}/weights/best_clr.pt")
         }
@@ -261,6 +265,10 @@ if __name__ == '__main__':
         raise RuntimeError(f"不支持模型类别{args.task}")
     assert args.clr_version in ["v1", "v2"], f"不支持版本{args.clr_version}"
     clr_module_cls = SimCLRv2YOLOv8 if args.clr_version == "v2" else SimCLRv1YOLOv8
+    kwargs = {
+        "skip_sppf": args.skip_sppf,
+        "yolo_version": args.yolo_version,
+    }
     # 开始可视化 before
     use_best_pretrain = (args.use_best_pretrain and osp.exists(visualizer_cfg["best_pretrain"]))
     pretrain_path = visualizer_cfg["best_pretrain"] if use_best_pretrain else visualizer_cfg["pretrain"]
@@ -269,7 +277,8 @@ if __name__ == '__main__':
         pretrain_path=None if use_best_pretrain else pretrain_path, modify_model=True
     )
     if use_best_pretrain: _YOLOv8_model_before_.load(pretrain_path)
-    _YOLOv8_backbone_before_, _YOLOv8_out_channels_before_, _YOLOv8_layer_indices_before_ = get_backbone(_YOLOv8_model_before_, task=visualizer_cfg["task"])
+    _YOLOv8_backbone_before_, _YOLOv8_out_channels_before_, _YOLOv8_layer_indices_before_ = get_backbone(_YOLOv8_model_before_, task=visualizer_cfg["task"], **kwargs)
+    print(f"[BEFORE]: dims={_YOLOv8_out_channels_before_}, layers={_YOLOv8_layer_indices_before_}")
     model_before = clr_module_cls(_YOLOv8_backbone_before_, _YOLOv8_out_channels_before_, _YOLOv8_layer_indices_before_, augmentation=None, projector_dim=args.proj_dims)
     from yolov8_model_tools import MultiScaleFeatureAttention
     model_before.attn_module = MultiScaleFeatureAttention(nn.ModuleList([
@@ -281,7 +290,8 @@ if __name__ == '__main__':
         model_path=visualizer_cfg["model_path"], task=visualizer_cfg["task"],
         pretrain_path=None, modify_model=True
     )
-    _YOLOv8_backbone_after_, _YOLOv8_out_channels_after_, _YOLOv8_layer_indices_after_ = get_backbone(_YOLOv8_model_after_, task=visualizer_cfg["task"])
+    _YOLOv8_backbone_after_, _YOLOv8_out_channels_after_, _YOLOv8_layer_indices_after_ = get_backbone(_YOLOv8_model_after_, task=visualizer_cfg["task"], **kwargs)
+    print(f"[AFTER]: dims={_YOLOv8_out_channels_after_}, layers={_YOLOv8_layer_indices_after_}")
     model_after = clr_module_cls(_YOLOv8_backbone_after_, _YOLOv8_out_channels_after_, _YOLOv8_layer_indices_after_, augmentation=None, projector_dim=args.proj_dims)
     model_after.attn_module = MultiScaleFeatureAttention(nn.ModuleList([
         get_attention(in_channels, visualizer_cfg["task"])
@@ -302,11 +312,11 @@ if __name__ == '__main__':
     image_exts = [".jpg", ".jpeg", ".png", ".bmp"]  # 支持的图片扩展名
     images_path = [p for p in test_root.iterdir() if p.suffix.lower() in image_exts] # 遍历 test_root 下所有图片文件
     # 查找最后一层 C2f / C2fWithAttention 层，若无则默认最后一层
-    # SPPF层不适合做热力图展示
+    # SPPF/SPPELAN层不适合做热力图展示
     target_layer_indexes = model_after.layer_indices
     target_layer_indexes[-1] = next(
         (i for i, l in reversed(list(enumerate(_YOLOv8_backbone_after_)))
-        if l.__class__.__name__ in ('C2f', 'C2fWithAttention')),
+        if l.__class__.__name__ in ('C2f', 'C2fWithAttention', 'RepNCSPELAN4', 'PSA', 'C2fCIB', 'C2PSA', 'C3k2', 'A2C2f', 'A2C2fWithAttention')),
         len(_YOLOv8_backbone_after_) - 1
     )
     # 开始获取热力图

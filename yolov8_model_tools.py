@@ -11,11 +11,11 @@ def load_model(model_path, task, pretrain_path=None, modify_model=False):
     else:
         raise RuntimeError("不支持task类型，请检查参数")
 
-def get_backbone(model, task):
+def get_backbone(model, task, **kwargs):
     if task == "classify":
         return get_classify_backbone(model)
     elif task == "detect":
-        return get_detect_backbone(model)
+        return get_detect_backbone(model, **kwargs)
     else:
         raise RuntimeError("不支持task类型，请检查参数")
     

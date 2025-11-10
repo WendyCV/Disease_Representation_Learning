@@ -49,8 +49,8 @@ if __name__ == '__main__':
             "show_conf": True,
             "conf": args.conf,    # 置信度阈值
             "iou": args.iou,      # IoU 阈值
-            "half": True,
-            "augment": True,
+            # "half": True,
+            # "augment": True,
         }
         # 进行推理预测
         test_dir = Path(make_abs_path("datasets")).joinpath(args.task).joinpath("test").joinpath("images")
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             "save_json": True,
             "conf": args.conf,    # 置信度阈值
             "iou": args.iou,      # IoU 阈值
-            "augment": True,
+            # "augment": True,
         }
         result = _model.val(data=yaml_path, imgsz=640, **kwargs)
         if args.dir_suffix and args.dir_suffix != "":

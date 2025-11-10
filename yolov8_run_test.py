@@ -232,6 +232,7 @@ def run_graft_detect_header(from_dir, to_dir, hybrid_dir):
         "yolov8_predict_detect.py",
         "--dir_suffix", hybrid_dir,
     ], shell=True, check=True)
+    
 
 if __name__ == '__main__':
     import time
@@ -246,9 +247,9 @@ if __name__ == '__main__':
     # run_gaussian_weight_map(20, 20, sigma=sigma)
     # run_center_weight_map(20, 20, 2, 3)
     # 测试生成mask
-    image_dir = make_abs_path("datasets/classify/train")
+    # image_dir = make_abs_path("datasets/classify/train")
     # image_dir = make_abs_path("runs/test")
-    test_loader_and_mask(data_dir=image_dir, img_sz=640, batch_size=4, show_aug=True)
+    # test_loader_and_mask(data_dir=image_dir, img_sz=640, batch_size=4, show_aug=True)
     # 测试mask质心函数
     # image_dir = make_abs_path("datasets/classify/train")
     # run_center_of_mask(data_dir=image_dir, img_sz=640, batch_size=4)

@@ -13,6 +13,7 @@ from ultralytics.nn.modules import (
     AIFI,
     C1,
     C2,
+    C2PSA,
     C3,
     C3TR,
     ELAN1,
@@ -28,7 +29,9 @@ from ultralytics.nn.modules import (
     C2f,
     C2fAttn,
     C2fCIB,
+    C2fPSA,
     C3Ghost,
+    C3k2,
     C3x,
     CBFuse,
     CBLinear,
@@ -969,12 +972,15 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             GhostBottleneck,
             SPP,
             SPPF,
+            C2fPSA,
+            C2PSA,
             DWConv,
             Focus,
             BottleneckCSP,
             C1,
             C2,
             C2f,
+            C3k2,
             RepNCSPELAN4,
             ELAN1,
             ADown,
@@ -1002,9 +1008,15 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                 )  # num heads
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C1, C2, C2f, C2fAttn, C3, C3TR, C3Ghost, C3x, RepC3, C2fCIB}:
+            if m in {BottleneckCSP, C1, C2, C2f, C3k2, C2fAttn, C3, C3TR, C3Ghost, C3x, RepC3, C2fPSA, C2fCIB}:
                 args.insert(2, n)  # number of repeats
                 n = 1
+            if m is C3k2:  # for M/L/X sizes
+                legacy = False
+                if scale in "mlx":
+                    args[3] = True
+            if m is C2fCIB:
+                legacy = False
         elif m is AIFI:
             args = [ch[f], *args]
         elif m in {HGStem, HGBlock}:

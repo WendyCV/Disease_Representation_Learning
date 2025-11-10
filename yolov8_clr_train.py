@@ -49,7 +49,7 @@ class ImageForlderLoader(Dataset):
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
             # v2.Resize(size=int(img_sz)),
-            ResizeAndPadToSquare(long_size=int(img_sz)),
+            ResizeAndPadToSquare(long_size=640),
         ])
         self.edge_mask = edge_mask
         # 缓存数据，每次计算mask很耗时
@@ -346,7 +346,7 @@ from attention import SE, CBAM
 
 # 多尺度前景关注模块（结合注意力机制）
 class MultiScaleForegroundAware(nn.Module):
-    def __init__(self, in_channels, multi_scales, pool_sizes, use_depthwise=False, fusion_mode="concat", attn_block="CBAM"):
+    def __init__(self, in_channels, multi_scales, pool_sizes, use_depthwise=False, fusion_mode="concat", attn_block="CBAM", spp_mode="hybrid"):
         super(MultiScaleForegroundAware, self).__init__()
         self.multi_scales = multi_scales
         # 多尺度卷积层
@@ -408,7 +408,7 @@ class MultiScaleForegroundAware(nn.Module):
         * dilated: 深度可分离 3x3 空洞卷积(按 pool_sizes 推导 dilation)
         * hybrid: pool + dilated 拼接
         """
-        self.spp = SpatialPyramidPooling(attn_channels, pool_sizes=self.pool_sizes, mode="dilated")  # SPP池化层
+        self.spp = SpatialPyramidPooling(attn_channels, pool_sizes=self.pool_sizes, mode=spp_mode)  # SPP池化层
         self.se = SE(attn_channels)
         # self.se = nn.Identity()
 
@@ -484,7 +484,7 @@ class MultiScaleForegroundAware(nn.Module):
 from yolov8_utils import get_center_weight_map
 
 class CenterForegroundAttentionModel(nn.Module):
-    def __init__(self, in_channels, use_depthwise=False, fusion_mode="concat", attn_block="CBAM"):
+    def __init__(self, in_channels, use_depthwise=False, fusion_mode="concat", attn_block="CBAM", spp_mode="hybrid"):
         super(CenterForegroundAttentionModel, self).__init__()
         # v1: 3x3单一尺度前景
         # self.foreground_aware = nn.ModuleList([
@@ -495,7 +495,8 @@ class CenterForegroundAttentionModel(nn.Module):
         self.foreground_aware = nn.ModuleList([
             MultiScaleForegroundAware(
                 c1, self.get_multi_scales(c1), self.get_pool_sizes(c1),
-                use_depthwise=use_depthwise, fusion_mode=fusion_mode, attn_block=attn_block
+                use_depthwise=use_depthwise, fusion_mode=fusion_mode, attn_block=attn_block,
+                spp_mode=spp_mode
             )
             for c1 in in_channels
         ])
@@ -832,6 +833,7 @@ class SimCLRv2YOLOv8(SimCLRv1YOLOv8):
             # 返回结果
             return rsp_0
 
+
 # ====================================
 # DATA TRANSFORM DEFINITION
 # ==================================== 
@@ -1084,7 +1086,11 @@ def get_optimizer_params(_model, lr, decay):
 def clr_model_train(args, pre_train=None):
     # 加载YOLO模型, 获取backbone
     _model = load_model(model_path=args.config, task=args.task, pretrain_path=args.pretrain, modify_model=True)
-    backbone, layers_dims, layer_indices = get_backbone(model=_model, task=args.task)
+    kwargs = {
+        "skip_sppf": args.skip_sppf,
+        "yolo_version": args.yolo_version,
+    }
+    backbone, layers_dims, layer_indices = get_backbone(model=_model, task=args.task, **kwargs)
     # 构建model等训练参数
     # clr_augmentation = clr_transforms(img_sz=args.image_size)
     clr_augmentation = clr_transforms_v2(img_sz=args.image_size)
@@ -1104,7 +1110,7 @@ def clr_model_train(args, pre_train=None):
     # 返回clr模型继续改造
     if pre_train: pre_train(clr_model)
     # 定义辅助网络
-    ast_model = CenterForegroundAttentionModel(layers_dims, use_depthwise=args.use_depthwise, fusion_mode=args.fusion_mode)
+    ast_model = CenterForegroundAttentionModel(layers_dims, use_depthwise=args.use_depthwise, fusion_mode=args.fusion_mode, spp_mode=args.spp_mode)
     print(f"辅助模型：{ast_model}")
     # 确保全部参与训练
     for param in clr_model.parameters():
@@ -1149,9 +1155,9 @@ def clr_model_train(args, pre_train=None):
     # from pytorch_metric_learning.losses import NTXentLoss
     from yolov8_utils import NTXentLoss, TripletLoss, CenterLoss
     # 计算相似度，正例最大相似，负例最大不相似（类内相似，类间区分）
-    ntxent_loss_func = NTXentLoss(temperature=args.temperature, reduction="mean", train_able=False)
+    ntxent_loss_func = NTXentLoss(temperature=args.temperature, reduction="mean", train_able=(args.clr_version == "v3"))
     # 计算与锚点L2距离，正例距离最小，负例距离最大（类内聚集，类间分散）
-    triplet_loss_func = TripletLoss(margin=args.margin, reduction="mean", use_cosine=True, hard_mining=args.trip_mode, train_able=False)
+    triplet_loss_func = TripletLoss(margin=args.margin, reduction="mean", use_cosine=True, hard_mining=args.trip_mode, train_able=(args.clr_version == "v3"))
     # 计算类中心聚集，同一类别具备向心性（缺乏类别信息，无法自监督）
     # center_loss_func = CenterLoss(num_classes=num_classes, feat_dim=256, device=DEVICE)
     # 1️⃣ 获取主网络和辅助网络的参数组
@@ -1343,6 +1349,8 @@ def args_parser():
     parser.add_argument("--image_dir", type=str, default="train", help="图片目录")
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--task", type=str, default="detect", choices=["classify", "detect"], help="训练模型类别")
+    parser.add_argument("--skip_sppf", action='store_true', help="是否跳过SPPF层不训练")
+    parser.add_argument("--yolo_version", type=str, default="v8", choices=["v8", "v9", "v10", "v11"], help="yolo版本选择")
     parser.add_argument("--config", type=str, default="yolov8m.yaml", help="YAML配置")
     parser.add_argument("--pretrain", type=str, default="yolov8m.pt", help="预训练权重")
     parser.add_argument("--epochs", type=int, default=120, help="训练epochs次数")
@@ -1355,6 +1363,8 @@ def args_parser():
     parser.add_argument("--proj_dims", type=int, default=256, choices=[128, 256], help="投影头特征维度")
     parser.add_argument("--dropout_r", type=float, default=0.2, help="投影头dropout率")
     parser.add_argument("--clr_version", type=str, default="v2", choices=["v1", "v2"], help="clr版本选择")
+    parser.add_argument("--pe_ratio", type=float, default=0.5, choices=[0.25, 0.5, 0.75], help="v3几何特征参数")
+    parser.add_argument("--pe_alpha", type=float, default=0.25, help="v3几何特征参数")
     parser.add_argument("--temperature", type=float, default=0.18, help="NTXentLoss函数参数")
     parser.add_argument("--w_proj", type=float, default=1.0, help="NTXentLoss权重")
     parser.add_argument("--margin", type=float, default=0.2, help="TripletLoss函数参数")
@@ -1366,6 +1376,7 @@ def args_parser():
     parser.add_argument("--w_fgrd", type=float, default=1.0, help="ForegroundAttendedLoss权重")
     parser.add_argument("--use_depthwise", action='store_true', help="多尺度特征是否用depthwise")
     parser.add_argument("--fusion_mode", type=str, default="concat", choices=["concat", "weight", "attention"], help="多尺度特征融合模式")
+    parser.add_argument("--spp_mode", type=str, default="hybrid", choices=["pool", "dilated", "hybrid"], help="池化层前景感知策略")
     parser.add_argument("--bank_size", type=int, default=4096, help="训练bank容量大小(256*batch_size)")
     parser.add_argument("--bank_sample_size", type=int, default=320, help="训练bank容量采样(8*batch_size)")
     parser.add_argument("--bank_momentum", type=float, default=0.99, help="动量编码器更新参数")
@@ -1385,6 +1396,7 @@ if __name__ == '__main__':
     python yolov8_clr_train.py --task "detect" --config "yolov8m.yaml" --pretrain "yolov8m.pt"
     """
     # 参数校正目录
+    args.batch_size = min(64, args.batch_size) if args.yolo_version == "v8" else (min(32, args.batch_size) if args.yolo_version == "v9" else min(16, args.batch_size))
     args.image_dir = Path(make_abs_path("datasets")).joinpath(args.task).joinpath(args.image_dir)
     args.config = Path(make_abs_path("models")).joinpath(args.config)
     args.pretrain = Path(make_abs_path("pretrains")).joinpath(args.task).joinpath(args.pretrain)
@@ -1406,13 +1418,19 @@ if __name__ == '__main__':
     if args.visualizer:
         import sys
         import subprocess
-        subprocess.run([
-            sys.executable,  # 当前解释器路径
-            "yolov8_backbone_visualizer.py",
+        cmd_args = [
             "--task", args.task,
+            "--config", Path(args.config).name,
+            "--pretrain", Path(args.pretrain).name,
+            "--yolo_version", args.yolo_version,
             "--proj_dims", str(args.proj_dims),
             "--clr_version", args.clr_version,
             "--dir_suffix", args.dir_suffix,
             "--save_only",
-        ], shell=True, check=True)
+        ]
+        if args.skip_sppf: cmd_args.append("--skip_sppf")
+        subprocess.run([
+            sys.executable,  # 当前解释器路径
+            "yolov8_backbone_visualizer.py",
+        ] + cmd_args, shell=True, check=True)
     # 结束clr训练
