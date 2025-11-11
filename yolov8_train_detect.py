@@ -128,30 +128,26 @@ if __name__ == '__main__':
             # ===============================
             # 🎨 数据增强与稳定性
             # ===============================
-            "copy_paste": 0.00, "mosaic": 0.30, 
-            "hsv_h": 0.015, "hsv_s": 0.24, "hsv_v": 0.30,
-            "close_mosaic": int(0.45 * args.epochs),
+            "copy_paste": 0.0, "mosaic": 0.30,
+            "hsv_h": 0.015, "hsv_s": 0.25, "hsv_v": 0.30,
+            "close_mosaic": int(0.50 * args.epochs),
             # ===============================
             # ⚖️ 损失权重微调
             # ===============================
-            "kobj": 1.02, 
-            "box": 2.2, "dfl": 1.50, 
-            "iou": 0.60,
+            "kobj": 1.00, "box": 3.0, "dfl": 1.50, "iou": 0.62,
         })
     elif args.spp_mode == "dilated":
         kwargs.update({
             # ===============================
             # 🎨 数据增强与稳定性
             # ===============================
-            "copy_paste": 0.0, "mosaic": 0.30, 
-            "hsv_h": 0.015, "hsv_s": 0.25, "hsv_v": 0.30,
-            "close_mosaic": int(0.25 * args.epochs),
+            "copy_paste": 0.0, "mosaic": 0.30,
+            "hsv_h": 0.015, "hsv_s": 0.22, "hsv_v": 0.30,
+            "close_mosaic": int(0.45 * args.epochs),
             # ===============================
             # ⚖️ 损失权重微调
             # ===============================
-            "kobj": 1.00,
-            "box": 3.0, "dfl": 1.50, 
-            "iou": 0.62,
+            "kobj": 1.02, "box": 2.2, "dfl": 1.40, "iou": 0.58,
         })
     # 开始训练
     dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
