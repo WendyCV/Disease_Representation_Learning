@@ -1398,8 +1398,8 @@ if __name__ == '__main__':
     # 参数校正目录
     args.batch_size = min(64, args.batch_size) if args.yolo_version == "v8" else (min(32, args.batch_size) if args.yolo_version == "v9" else min(16, args.batch_size))
     args.image_dir = Path(make_abs_path("datasets")).joinpath(args.task).joinpath(args.image_dir)
-    args.config = Path(make_abs_path("models")).joinpath(args.config)
-    args.pretrain = Path(make_abs_path("pretrains")).joinpath(args.task).joinpath(args.pretrain)
+    args.config = Path(make_abs_path("yolo_models")).joinpath(args.config)
+    args.pretrain = Path(make_abs_path("yolo_pretrains")).joinpath(args.task).joinpath(args.pretrain)
     args.output_dir = Path(make_abs_path("runs")).joinpath(args.task).joinpath(args.output_dir)
     # clr_model训练
     print("[RUN-args]:", args)

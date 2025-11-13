@@ -247,8 +247,8 @@ if __name__ == '__main__':
         dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
         visualizer_cfg = {
             "task": "classify",
-            "model_path": make_abs_path("models/yolov8m-cls.yaml"),
-            "pretrain": make_abs_path("pretrains/classify/yolov8m-cls.pt"),
+            "model_path": make_abs_path("yolo_models/yolov8m-cls.yaml"),
+            "pretrain": make_abs_path("yolo_pretrains/classify/yolov8m-cls.pt"),
             "best_pretrain": make_abs_path(f"runs/classify/train{dir_suffix}/weights/best.pt"),
             "clr_pretrain": make_abs_path(f"runs/classify/clr_train{dir_suffix}/weights/best_clr.pt")
         }
@@ -256,8 +256,8 @@ if __name__ == '__main__':
         dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
         visualizer_cfg = {
             "task": "detect",
-            "model_path": make_abs_path(f"models/{args.config}"),
-            "pretrain": make_abs_path(f"pretrains/detect/{args.pretrain}"),
+            "model_path": make_abs_path(f"yolo_models/{args.config}"),
+            "pretrain": make_abs_path(f"yolo_pretrains/detect/{args.pretrain}"),
             "best_pretrain": make_abs_path(f"runs/detect/train{dir_suffix}/weights/best.pt"),
             "clr_pretrain": make_abs_path(f"runs/detect/clr_train{dir_suffix}/weights/best_clr.pt")
         }

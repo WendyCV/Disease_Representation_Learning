@@ -98,8 +98,8 @@ if __name__ == '__main__':
         "cache": "disk"
     }
     dir_suffix = f"_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else ""
-    model_path = Path(make_abs_path("models")).joinpath(args.config)
-    pretrain_path = Path(make_abs_path("pretrains")).joinpath(args.task).joinpath(args.pretrain)
+    model_path = Path(make_abs_path("yolo_models")).joinpath(args.config)
+    pretrain_path = Path(make_abs_path("yolo_pretrains")).joinpath(args.task).joinpath(args.pretrain)
     clr_pretrain_path = Path(make_abs_path("runs")).joinpath(args.task).joinpath(f"clr_train{dir_suffix}").joinpath("weights").joinpath(args.clr_pretrain)
     _model = load_model(
         model_path=model_path, task=args.task, 

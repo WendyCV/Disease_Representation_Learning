@@ -29,7 +29,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print("[RUN-args]:", args)
     # 获取参数开始训练
-    model_path = Path(make_abs_path("models")).joinpath(args.config)
+    model_path = Path(make_abs_path("yolo_models")).joinpath(args.config)
     _model = load_model(model_path=model_path, task=args.task, modify_model=True)
     train_output_dir = f"train_{args.dir_suffix}" if args.dir_suffix and args.dir_suffix != "" else "train"
     runs_weights_path = Path(make_abs_path("runs")).joinpath(args.task).joinpath(train_output_dir).joinpath("weights").joinpath(args.pretrain)

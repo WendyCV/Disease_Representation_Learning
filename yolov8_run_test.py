@@ -186,7 +186,7 @@ def run_graft_detect_header(from_dir, to_dir, hybrid_dir):
     from attention import SelfDetectionTrainer
     from_weight = Path(f"runs/detect/train_{from_dir}/weights/best.pt")
     to_weight = Path(f"runs/detect/train_{to_dir}/weights/best.pt")
-    model_path = Path(make_abs_path("models/yolov8m.yaml"))
+    model_path = Path(make_abs_path("yolo_models/yolov8m.yaml"))
     from_model = load_model(model_path=model_path, task="detect", modify_model=True)
     from_model.load(from_weight)
     to_model = load_model(model_path=model_path, task="detect", modify_model=True)

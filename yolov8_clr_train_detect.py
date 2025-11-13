@@ -41,8 +41,8 @@ if __name__ == '__main__':
     with open(yaml_path, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     args.image_dir = yaml_path.joinpath(data["train"]).resolve()
-    # args.config = make_abs_path("models/yolov8m.yaml")
-    # args.pretrain = make_abs_path("pretrains/detect/yolov8m.pt")
+    # args.config = make_abs_path("yolo_models/yolov8m.yaml")
+    # args.pretrain = make_abs_path("yolo_pretrains/detect/yolov8m.pt")
     args.output_dir = make_abs_path("runs/detect/clr_train")
     # 参数batch_size=16，image_size=640
     # clr_model_train(args, pre_train=pre_train)
