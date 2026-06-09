@@ -1,0 +1,112 @@
+experiment:
+  name: wo_mask
+  family: paper_stage1_ablation
+  notes: Remove foreground mask guidance while keeping FPAM and auxiliary transfer.
+model:
+  sppf_indice: 9
+  nc: 4
+  queue_size: 4096
+  momentum: 0.999
+  temperature: 0.2
+  pos_pe_channels: 64
+  pos_init_scales:
+  - 0.3
+  - 0.5
+  - 0.8
+  pos_enable_fg_guidance: true
+  pos_fg_gate_init: 1.0
+  separate_projector: false
+  snapshot_teacher:
+    enabled: true
+    freeze_after_epoch: 5
+  yolo_model: yolo11n.pt
+  layer_indices:
+  - 4
+  - 6
+  - 8
+  proj_dim: 256
+  local_dim: 128
+loss:
+  aux_embedding:
+    enabled: true
+    teacher_source: snapshot
+    weight: 0.1
+    local_weight: 0.2
+    detach_teacher: true
+    scale_weights:
+    - 0.3
+    - 0.35
+    - 0.35
+  raw_spatial:
+    enabled: false
+    mask_weight: 0.25
+    consistency_weight: 0.15
+    mask_scale_weights:
+    - 0.25
+    - 0.4
+    - 0.35
+    consistency_scale_weights:
+    - 0.35
+    - 0.35
+    - 0.3
+    foreground_background_margin: 0.15
+  base:
+    global: 1.0
+    local: 0.3
+    position: 0.1
+  raw_prior_distillation:
+    enabled: false
+    start_epoch: 6
+    teacher_source: online
+    teacher_branch: pos_feats
+    loss_type: smooth_l1
+    weight: 0.0
+    scale_weights:
+    - 0.3
+    - 0.4
+    - 0.3
+    detach_teacher: true
+    student_temperature: 0.1
+    teacher_temperature: 0.07
+ablation:
+  use_pos: true
+  use_mask: false
+  use_aux_embedding: true
+  use_raw_spatial: false
+  freeze_after_epoch_override: 5
+data:
+  train_dir: ./data/unlabeled_train
+  mask_root_dir: ./data/unlabeled_train/foreground_masks
+  mask_mode: none
+  image_size: 640
+  num_workers: 4
+  use_cache: true
+  edge_mask: false
+  min_valid_pixels: 4096
+  mask_suffix: .png
+  missing_mask_policy: error
+  external_mask_threshold: 127
+  external_mask_median_blur: 0
+  external_mask_open_kernel: 0
+  external_mask_close_kernel: 0
+  extra_image_prefixes: DSC_
+  extra_ratio_to_base: 1.0
+  extra_sampling: even
+  extra_random_seed: 2026
+train:
+  batch_size: 8
+  epochs: 50
+  lr: 0.0003
+  weight_decay: 0.0001
+  device: cuda
+  amp: true
+  seed: 42
+  save_dir: ./runs_yolov11n/glcp_stage1_yolo_det
+runtime:
+  use_pos: true
+  use_mask: false
+  use_aux_embedding: true
+  use_raw_spatial: false
+  snapshot_teacher_enabled: true
+  snapshot_freeze_after_epoch: 5
+  needs_snapshot_teacher: true
