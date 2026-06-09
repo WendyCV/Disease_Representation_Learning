@@ -1,0 +1,105 @@
+# ============================================================================
+# Paper scheme Stage-1 supplementary route: stronger raw prior distillation
+# ============================================================================
+
+experiment:
+  name: use_pos_mask_rpd_hybrid_w020
+  family: paper_stage1_rpd
+  notes: "Supplementary Stage-1 route for discussion: hybrid RPD with stronger raw-backbone prior compression."
+
+data:
+  train_dir: ./data/unlabeled_train/images
+  mask_root_dir: ./data/unlabeled_train/foreground_masks
+  mask_mode: sam2
+  image_size: 640
+  num_workers: 4
+  batch_size: 8
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  use_cache: true
+  edge_mask: false
+  min_valid_pixels: 4096
+  mask_suffix: .png
+  missing_mask_policy: error
+  external_mask_threshold: 127
+  external_mask_median_blur: 0
+  external_mask_open_kernel: 0
+  external_mask_close_kernel: 0
+  # 控制DSC_数量
+  extra_image_prefixes: "DSC_"
+  extra_ratio_to_base: 1.0
+  extra_sampling: "even"
+  extra_random_seed: 2026
+
+train:
+  batch_size: 8
+  epochs: 50
+  lr: 0.0003
+  weight_decay: 0.0001
+  device: cuda
+  amp: true
+  seed: 42
+  save_dir: ./runs_yolov9t/glcp_stage1_yolo_det
+
+model:
+  yolo_model: yolov9t.pt
+  nc: 4
+  sppf_indice: 9
+  layer_indices: [4, 6, 8]
+  proj_dim: 256
+  local_dim: 128
+  queue_size: 4096
+  momentum: 0.999
+  temperature: 0.2
+  pos_pe_channels: 64
+  pos_pe_spans: [1, 1, 1]
+  pos_init_scales: [0.3, 0.5, 0.8]
+  pos_enable_fg_guidance: true
+  pos_fg_gate_init: 1.0
+  separate_projector: false
+
+  snapshot_teacher:
+    enabled: true
+    freeze_after_epoch: 5
+
+loss:
+  base:
+    global: 1.0
+    local: 0.3
+    position: 0.1
+
+  aux_embedding:
+    enabled: true
+    teacher_source: snapshot
+    weight: 0.10
+    local_weight: 0.20
+    detach_teacher: true
+    scale_weights: [0.30, 0.35, 0.35]
+
+  raw_spatial:
+    enabled: true
+    mask_weight: 0.25
+    consistency_weight: 0.15
+    mask_scale_weights: [0.25, 0.40, 0.35]
+    consistency_scale_weights: [0.35, 0.35, 0.30]
+    foreground_background_margin: 0.15
+
+  raw_prior_distillation:
+    enabled: true
+    start_epoch: 6
+    teacher_source: online
+    teacher_branch: [local_embs, pos_feats, pos_feats]
+    loss_type: smooth_l1
+    weight: 0.20
+    scale_weights: [0.30, 0.40, 0.30]
+    detach_teacher: true
+    student_temperature: 0.10
+    teacher_temperature: 0.07
+
+ablation:
+  use_pos: true
+  use_mask: true
+  use_raw_spatial: true
+  use_aux_embedding: true
+  freeze_after_epoch_override: 5

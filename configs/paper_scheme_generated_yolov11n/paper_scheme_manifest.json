@@ -1,0 +1,19 @@
+{
+  "stage1_main": "stage1_use_pos_mask_sw_lesion_sensitive.yaml",
+  "stage1_ablations": [
+    "stage1_wo_mask.yaml",
+    "stage1_wo_pos.yaml",
+    "stage1_wo_pos_wo_mask.yaml"
+  ],
+  "stage1_supplementary": "stage1_use_pos_mask_rpd_hybrid_w020.yaml",
+  "stage2_main_transfer": [
+    "stage2_baseline.yaml",
+    "stage2_direct_transfer_ls.yaml",
+    "stage2_leafaux_transfer_ls.yaml"
+  ],
+  "stage2_supplementary_transfer": [
+    "stage2_direct_transfer_rpd_w020.yaml",
+    "stage2_leafaux_transfer_rpd_w020.yaml"
+  ],
+  "runner": "run_paper_scheme_stage1_stage2_all.bat"
+}

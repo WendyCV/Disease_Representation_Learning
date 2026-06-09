@@ -1,0 +1,10 @@
+path: D:/workspace_phd/Durain_Leaf_Disease_Detection/data/det_dataset
+train: images/train
+val: images/val
+test: images/test
+nc: 4
+names:
+  0: algal_leaf_spot
+  1: no_disease
+  2: leaf_blight
+  3: leaf_spot

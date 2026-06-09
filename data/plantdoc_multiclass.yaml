@@ -1,0 +1,17 @@
+path: D:\workspace_phd\Durain_Leaf_Disease_Detection\data\PlantDoc_multiclass
+train: images/train
+val: images/val
+test: images/test
+nc: 11
+names:
+- Apple leaf
+- Blueberry leaf
+- Corn leaf blight
+- Corn rust leaf
+- Peach leaf
+- Raspberry leaf
+- Squash Powdery mildew leaf
+- Strawberry leaf
+- Tomato Septoria leaf spot
+- Tomato leaf mosaic virus
+- Tomato leaf

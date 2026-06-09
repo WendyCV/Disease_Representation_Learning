@@ -1,0 +1,7 @@
+path: D:/workspace_phd/Durain_Leaf_Disease_Detection/data/PlantDoc_singleclass
+train: images/train
+val: images/val
+test: images/test
+nc: 1
+names:
+  0: leaf_region

@@ -1,0 +1,115 @@
+# =========================
+# Stage 2: paper-scheme transfer validation config
+# =========================
+
+model:
+  yolo_model: "yolov10n.pt"
+  nc: 4
+  single_cls: false
+
+data:
+  data_yaml: "./data/det_dataset.yaml"
+  imgsz: 640
+  workers: 4
+
+train:
+  name: "baseline"
+  project: "./runs_yolov10n/glcp_stage2_yolo_det"
+  exist_ok: true
+  pretrained: true
+
+  epochs: 100
+  batch_size: 16
+  device: "cuda"
+  seed: 42
+
+  optimizer: "AdamW"
+  lr0: 0.0005
+  lrf: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005
+
+  warmup_epochs: 5.0
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+
+  cos_lr: true
+  close_mosaic: 10
+  patience: 50
+  amp: true
+  rect: false
+  val: true
+  save: true
+  save_period: -1
+  plots: true
+
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+
+stage1_init:
+  enabled: false
+  ckpt_path: "./runs_yolov10n/glcp_stage1_yolo_det/wo_pos_wo_mask/best.pth"
+  ssl_config: "./configs/paper_scheme_generated_yolov10n/stage1_stage1_wo_pos_wo_mask.yaml"
+  layer_indices: [4, 6, 8]
+
+freeze:
+  enabled: false
+  layer_indices: [0, 1, 2, 3, 4]
+
+spatial_alignment:
+  enabled: false
+  teacher_ckpt_path: "./runs_yolov10n/glcp_stage1_yolo_det/wo_pos_wo_mask/best.pth"
+  teacher_ssl_config: "./configs/paper_scheme_generated_yolov10n/stage1_stage1_wo_pos_wo_mask.yaml"
+  teacher_branch: "pos_feats"
+  teacher_feature_indices: [0, 1, 2]
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [1.0, 1.0, 1.0]
+  alpha: 0.05
+  log_interval: 10
+
+foreground_prior_distillation:
+  enabled: false
+  teacher_ckpt_path: "./runs_yolov10n/glcp_stage1_yolo_det/wo_pos_wo_mask/best.pth"
+  teacher_ssl_config: "./configs/paper_scheme_generated_yolov10n/stage1_stage1_wo_pos_wo_mask.yaml"
+  teacher_branch: "pos_feats"
+  teacher_feature_indices: [0, 1, 2]
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [1.0, 1.0, 1.0]
+  alpha: 0.03
+  log_interval: 10
+  fg_quantile: 0.7
+  bg_quantile: 0.3
+  lambda_fg: 1.0
+  lambda_bg: 0.5
+
+leaf_prior_auxiliary:
+  enabled: false
+  teacher_ckpt_path: "./runs_yolov10n/glcp_stage1_yolo_det/wo_pos_wo_mask/best.pth"
+  teacher_ssl_config: "./configs/paper_scheme_generated_yolov10n/stage1_stage1_wo_pos_wo_mask.yaml"
+  teacher_branch: "pos_feats"
+  teacher_feature_indices: [0, 1, 2]
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [0.4, 0.8, 1.0]
+  alpha: 1.0
+  log_interval: 20
+  gate_init_beta: 2.0
+  gamma: 1.0
+  bg_quantile: 0.20
+  lambda_bg: 0.25
+  loss_type: "bce"
+  enable_gate: true
+  detach_teacher: true
+
+leaf_prior_objectness_transfer:
+  enabled: false

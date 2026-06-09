@@ -1,0 +1,226 @@
+# =========================
+# Stage 2: YOLO 病斑检测训练配置
+# =========================
+
+model:
+  yolo_model: "yolov8n.pt"
+  nc: 4
+  single_cls: false
+
+data:
+  # 你的检测数据集 yaml，例如：./data/durian_det.yaml
+  data_yaml: "./data/det_dataset.yaml"
+  imgsz: 640
+  workers: 4
+
+train:
+  name: "stage2_det"
+  project: "./runs/glcp_stage2_yolo_det"
+  exist_ok: true
+
+  epochs: 100
+  batch_size: 16
+  device: "cuda"
+  seed: 42
+
+  optimizer: "AdamW"
+  lr0: 0.001
+  lrf: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005
+
+  warmup_epochs: 3.0
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+
+  cos_lr: true
+  close_mosaic: 10
+  patience: 50
+  amp: true
+  rect: false
+  val: true
+  save: true
+  save_period: -1
+  plots: true
+
+  # 常用增强，可按你之前的实验习惯微调
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+
+# 是否加载 stage1 对比学习得到的 backbone
+stage1_init:
+  enabled: true
+  # 例如：./runs/glcp_stage1_yolo_det/use_pos_mask/best.pth
+  ckpt_path: "./runs/glcp_stage1_yolo_det/use_pos_mask/best.pth"
+
+
+# 可选：冻结部分 backbone 浅层，做更稳的 warm start
+freeze:
+  enabled: false
+  layer_indices: [0, 1, 2, 3, 4]
+
+
+# 轻量 L1/L2/L3 spatial map alignment（默认关闭）
+spatial_alignment:
+  enabled: false
+  # 为空时默认复用 stage1_init.ckpt_path
+  teacher_ckpt_path: ""
+  teacher_ssl_config: "./configs/stage1_ablation_generated/use_pos_mask.yaml"
+  # 建议保持为 pos_feats，对齐 Stage1 中更优的 position-enhanced 空间模式
+  teacher_branch: "pos_feats"
+  # Stage1 layer_indices=[4,6,8] 对应三尺度输出，这里 [0,1,2] 即 L1/L2/L3
+  teacher_feature_indices: [0, 1, 2]
+  # Student detector backbone hooks，对应 model.4 / model.6 / model.8
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [0.4, 1.0, 0.8]  # L1/L2/L3: lesion-detail / lesion-region / leaf-context
+  alpha: 0.05
+  log_interval: 10
+
+
+# 轻量 L1/L2/L3 foreground prior distillation（默认关闭）
+foreground_prior_distillation:
+  enabled: false
+  teacher_ckpt_path: ""
+  teacher_ssl_config: "./configs/stage1_ablation_generated/use_pos_mask.yaml"
+  teacher_branch: "pos_feats"
+  teacher_feature_indices: [0, 1, 2]
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [0.4, 1.0, 0.8]  # L1/L2/L3: lesion-detail / lesion-region / leaf-context
+  alpha: 0.02
+  log_interval: 10
+
+  # foreground / background region split from teacher soft maps
+  fg_quantile: 0.7
+  bg_quantile: 0.3
+
+  # loss weights
+  lambda_fg: 1.0
+  lambda_bg: 0.5
+
+
+# Leaf-Prior Auxiliary Head + Residual Gating（默认关闭）
+leaf_prior_auxiliary:
+  enabled: false
+  teacher_ckpt_path: ""
+  teacher_ssl_config: "./configs/stage1_ablation_generated/use_pos_mask.yaml"
+  teacher_branch: "pos_feats"
+  teacher_feature_indices: [0, 1, 2]
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [0.4, 1.0, 0.8]  # L1/L2/L3: lesion-detail / lesion-region / leaf-context
+  alpha: 1.0
+  log_interval: 20
+  gate_init_beta: 0.2
+  enable_gate: true  # false = loss-only / no residual feature gate, for mechanism ablation
+  gamma: 1.0
+  bg_quantile: 0.3
+  lambda_bg: 0.25
+
+# LPOT: Leaf-Prior Objectness Transfer（默认关闭）
+# 设计动机：
+#   1) backbone L1/L2/L3 继续学习 Stage1 的 lesion-detail / leaf-region / leaf-context prior
+#   2) pre-head P3/P4/P5 显式学习 objectness-like proxy
+#   3) 用 residual gating 把 prior 传到 detection-ready features
+leaf_prior_objectness_transfer:
+  enabled: false
+
+  # Implementation
+  # Supported examples:
+  #   proposal_support_prior_v1              -> LPOT-v4 PSP route
+  #   teacher_anchored_proxy_support_v1      -> LPOT-v5 teacher-anchor route
+  implementation: "proposal_support_prior_v1"
+  route_variant: "proposal_support_prior_v1"
+
+  teacher_ckpt_path: ""
+  teacher_ssl_config: "./configs/stage1_ablation_generated/use_pos_mask.yaml"
+  teacher_branch: "pos_feats"
+  teacher_feature_indices: [0, 1, 2]
+
+  # prior branch: Stage2 backbone hooks
+  student_layer_indices: [4, 6, 8]
+  layer_weights: [0.4, 1.0, 0.8]  # L1/L2/L3 prior branch
+
+  # proxy branch: pre-head hooks
+  proxy_layer_indices: [15, 18, 21]
+  proxy_layer_weights: [0.3, 1.0, 1.0]
+
+  # teacher prior fusion
+  teacher_fuse_weights: [0.4, 1.0, 0.8]  # L1/L2/L3 fusion
+
+  # LPOT-v4 light PSP default strength
+  alpha: 0.6
+  lambda_prior: 0.5
+  lambda_proxy: 0.25
+  lambda_bridge: 0.2
+
+  # ranking-oriented support loss
+  # lambda_align=0 disables dense heatmap imitation.
+  lambda_rank: 0.05
+  lambda_align: 0.0
+  support_margin: 0.10
+
+  # foreground/background support target
+  fg_quantile: 0.7
+  bg_quantile: 0.3
+  lambda_bg: 0.25
+
+  # teacher/student support target blending
+  objectness_student_blend: 0.75
+  objectness_smooth_kernel: 7
+  objectness_smooth_iters: 2
+
+
+  # LPOT-v5 teacher-anchored proxy support defaults
+  # These fields are disabled by default and therefore do not affect v4 / old LPOT runs.
+  # They are enabled only by v5 generated configs, e.g. implementation: teacher_anchored_proxy_support_v1.
+  lambda_teacher_rank: 0.0
+  lambda_teacher_bg: 0.0
+  teacher_anchor_margin: 0.10
+  teacher_fg_quantile: 0.70
+  teacher_bg_quantile: 0.30
+  # Must match proxy_layer_indices length when teacher-anchor loss is enabled.
+  # Empty list means: no teacher-anchor layer weighting unless overridden by generated config.
+  teacher_anchor_layer_weights: []
+
+
+
+  # LPOT-v4.1 score-level proposal-support regularization defaults
+  # Disabled by default and therefore does not affect v4/v5/legacy runs.
+  # It is enabled only by generated v4.1 configs.
+  lambda_score_rank: 0.0
+  lambda_score_bg: 0.0
+  score_rank_margin: 0.10
+  score_fg_quantile: 0.70
+  score_bg_quantile: 0.30
+  # Must match YOLO Detect score maps P3/P4/P5 when enabled.
+  score_rank_layer_weights: []
+  # Expand normalized GT boxes before building positive score regions.
+  score_gt_expand_ratio: 1.5
+  # Default: positives are GT/lesion regions; teacher prior defines low-prior background negatives.
+  score_use_gt_pos: true
+  score_use_teacher_fg_pos: false
+
+  # gate controls
+  # default: loss-only proposal-support prior, no feature override
+  enable_feature_gate: false
+  enable_proxy_gate: false
+  gate_init_beta: 0.2
+  proxy_gate_init_beta: 0.05
+  support_gate_gain: 0.0
+  proxy_support_gate_gain: 0.0
+  proxy_gate_decay_start_epoch: 70
+  proxy_gate_final_gain: 0.0
+
+  # misc
+  gamma: 1.0
+  log_interval: 20
