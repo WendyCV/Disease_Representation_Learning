@@ -1,8 +1,9 @@
 **FGCRL: Foreground-Prior-Guided Self-Supervised Pretraining for Lesion-Sensitive Visual Representation Learning in Complex Natural Scenes**
 
 FGCRL is a foreground-prior-guided self-supervised pretraining framework for learning lesion-sensitive visual representations from unlabeled diseased leaf images. Instead of treating foreground masks as lesion annotations, FGCRL uses SAM2-assisted coarse leaf masks as weak spatial priors to guide contrastive view construction, preserve foreground-supported local structures, and distil foreground-aware responses into the backbone. The learned backbone can then be transferred to YOLO-based detectors without modifying the downstream detector architecture.
+<img width="1730" height="937" alt="image" src="https://github.com/user-attachments/assets/9e9b0d1e-dbfd-496f-9763-145d541bab47" />
 
-
+---
 ## 1. Repository structure
 
 ```text
@@ -65,7 +66,7 @@ The manuscript evaluates FGCRL on the following datasets. Users should download 
 | PlantSeg            | Segmentation masks | Cross-dataset single-class and multi-class detection after mask-to-box conversion | [dataset paper](https://www.nature.com/articles/s41597-025-06513-4)                                                                 |
 
 
-### 4.2 PlantDoc preparation
+### 3.1 PlantDoc preparation
 
 PlantDoc annotations are converted into YOLO-compatible detection format. Two settings are supported:
 
@@ -88,7 +89,7 @@ If your local argument names differ, run:
 python tools/build_plantdoc_datasets.py --help
 ```
 
-### 4.3 PlantSeg preparation
+### 3.2 PlantSeg preparation
 
 PlantSeg provides pixel-level disease masks. For YOLO-based detection, each valid connected disease component is converted into a bounding box. The conversion follows the mask-to-box protocol used in the manuscript.
 
@@ -111,7 +112,7 @@ The preprocessing protocol excludes:
 
 Filtering decisions should be recorded in audit files whenever possible.
 
-### 4.4 Private orchard data
+### 3.3 Private orchard data
 
 The private durian orchard images used for unlabeled pretraining and in-domain validation are not fully redistributed in this repository because of field-data ownership, farm collaboration agreements, and dataset-use restrictions. To improve reproducibility, we provide the most reproducible alternatives possible:
 
@@ -125,7 +126,7 @@ The private durian orchard images used for unlabeled pretraining and in-domain v
 
 Researchers may reproduce the pipeline using their own unlabeled diseased leaf images and the same data organization described below.
 
-### 4.5 Expected YOLO dataset format
+### 3.4 Expected YOLO dataset format
 
 ```text
 dataset_root/
@@ -155,18 +156,18 @@ For multi-class detection, replace `names` with the retained disease categories.
 
 ---
 
-## 5. Environment setup
+## 4. Environment setup
 
 The experiments were conducted in a Conda environment with Python 3.10, PyTorch 2.3.0, CUDA 11.8, and YOLO-related dependencies. The main experiments were run on an NVIDIA RTX 4090 GPU with 24 GB memory.
 
-### 5.1 Clone the repository
+### 4.1 Clone the repository
 
 ```bash
 git clone https://github.com/WendyCV/Disease_Representation_Learning.git
 cd Disease_Representation_Learning
 ```
 
-### 5.2 Create the Conda environment
+### 4.2 Create the Conda environment
 
 We provide an `environment.yml` file for reproducing the software environment:
 
@@ -193,7 +194,7 @@ pip install albumentations==2.0.6 opencv-python-headless==4.10.0.84 \
   umap-learn==0.5.7 kneed==0.8.5 psutil==6.0.0 requests==2.32.3
 ```
 
-### 5.3 Core software versions
+### 4.3 Core software versions
 
 The main environment used in our experiments includes:
 
@@ -221,11 +222,11 @@ A full package list from the original Conda environment is provided in `environm
 
 ---
 
-## 6. Stage-1 FGCRL pretraining
+## 5. Stage-1 FGCRL pretraining
 
 Stage-1 pretraining learns foreground-sensitive representations from unlabeled leaf images and SAM2-assisted coarse foreground priors.
 
-### 6.1 Prepare unlabeled images and foreground priors
+### 5.1 Prepare unlabeled images and foreground priors
 
 Expected format:
 
@@ -239,7 +240,7 @@ data/stage1/
 
 The mask filename should correspond to the image filename unless otherwise specified in the config.
 
-### 6.2 Generate SAM2-assisted foreground priors
+### 5.2 Generate SAM2-assisted foreground priors
 
 If foreground masks are not available, generate them with:
 
@@ -282,11 +283,11 @@ best.pth
 
 ---
 
-## 7. Stage-2 downstream YOLO detection
+## 6. Stage-2 downstream YOLO detection
 
 Stage-2 transfers the FGCRL-pretrained backbone to YOLO-based detectors.
 
-### 7.1 Configure detector training
+### 6.1 Configure detector training
 
 Edit `configs/det_config.yaml` and set:
 
@@ -299,7 +300,7 @@ stage1_init:
   ckpt_path: /path/to/stage1/best.pth
 ```
 
-### 7.2 Run detector fine-tuning
+### 6.2 Run detector fine-tuning
 
 ```bash
 python train_stage2.py --config configs/det_config.yaml
@@ -321,7 +322,7 @@ augmentation: RandAugment
 
 The baseline and FGCRL-pretrained detectors should use the same detector configuration, input size, optimizer, augmentation, and evaluation procedure.
 
-### 7.3 Checkpoint availability
+### 6.3 Checkpoint availability
 
 Where technically feasible, pretrained checkpoints will be provided through GitHub Releases or Zenodo. If a checkpoint is not available, the corresponding `config_used.yaml`, training log, and reproduction command are provided so that users can retrain the model.
 
@@ -339,9 +340,9 @@ releases/
 
 ---
 
-## 8. Evaluation protocol
+## 7. Evaluation protocol
 
-### 8.1 Standard detection metrics
+### 7.1 Standard detection metrics
 
 The downstream detectors are evaluated using:
 
@@ -352,7 +353,7 @@ The downstream detectors are evaluated using:
 | mAP50     | Mean AP at IoU threshold 0.5                     |
 | mAP50-95  | Mean AP averaged over IoU thresholds 0.5 to 0.95 |
 
-### 8.2 Coarse-prior and feature-response analysis
+### 7.2 Coarse-prior and feature-response analysis
 
 The manuscript additionally reports diagnostic metrics to examine whether the learned backbone becomes more foreground- and lesion-aligned:
 
@@ -379,9 +380,9 @@ python tools/eval_best_models_on_split.py --help
 
 ---
 
-## 9. Main results reported in the manuscript
+## 8. Main results reported in the manuscript
 
-### 9.1 Transfer across lightweight YOLO variants on Durian Leaf Disease
+### 8.1 Transfer across lightweight YOLO variants on Durian Leaf Disease
 
 | Detector | Model            | Precision | Recall | mAP50 | mAP50-95 |
 | -------- | ---------------- | --------: | -----: | ----: | -------: |
@@ -394,7 +395,7 @@ python tools/eval_best_models_on_split.py --help
 | YOLOv11n | Baseline         |     93.28 |  90.42 | 93.06 |    78.84 |
 | YOLOv11n | FGCRL-pretrained |     92.53 |  91.75 | 93.41 |    80.93 |
 
-### 9.2 Cross-dataset transfer with YOLOv8n
+### 8.2 Cross-dataset transfer with YOLOv8n
 
 | Dataset  | Setting      | Model            | Precision | Recall | mAP50 | mAP50-95 |
 | -------- | ------------ | ---------------- | --------: | -----: | ----: | -------: |
@@ -409,7 +410,7 @@ python tools/eval_best_models_on_split.py --help
 
 The results should be interpreted together with the trade-off analysis in the manuscript. FGCRL improves mAP50 across all evaluated settings, but stricter localization and fine-grained category calibration remain challenging, especially for PlantSeg multi-class detection.
 
-### 9.3 Ablation results
+### 8.3 Ablation results
 
 | Variant | FPG | PARM | RPD | FG/BG | Top-20 FG lift | IoU lift q70 | Precision | Recall | mAP50 | mAP50-95 |
 | ------- | --- | ---- | --- | ----: | -------------: | -----------: | --------: | -----: | ----: | -------: |
@@ -422,107 +423,3 @@ The results should be interpreted together with the trade-off analysis in the ma
 FPG denotes foreground-prior guidance, PARM denotes the prior-aware representation module, and RPD denotes raw prior distillation.
 
 ---
-
-## 10. Reproduction checklist
-
-To reproduce the main experimental pipeline:
-
-1. Clone this repository.
-2. Create the Conda environment using `environment.yml`.
-3. Check `environment_full.txt` if a complete package record is needed.
-4. Download the public datasets from their official sources.
-5. Convert PlantDoc and PlantSeg into YOLO-compatible formats using the scripts in `tools/`.
-6. Prepare unlabeled leaf images and generate SAM2-assisted coarse foreground priors.
-7. Run Stage-1 FGCRL pretraining with `train_stage1.py`.
-8. Transfer the pretrained backbone into a YOLO detector using `train_stage2.py`.
-9. Evaluate the detector using the same split files and metrics.
-10. Run prior-quality and feature-response analysis scripts for diagnostic validation.
-11. Compare baseline and FGCRL-pretrained models under identical training settings.
-
----
-
-## 11. Ethical and technical release limitations
-
-Some data and models may not be fully released for ethical, privacy, copyright, or technical reasons.
-
-| Item                                | Release status          | Reason / alternative                                        |
-| ----------------------------------- | ----------------------- | ----------------------------------------------------------- |
-| Public datasets                     | Not redistributed       | Users should download from official sources                 |
-| Private orchard images              | Not publicly released   | Field-data ownership and collaboration agreements           |
-| Raw annotations from private data   | Not fully redistributed | Dataset-use restrictions                                    |
-| Processed metadata / split protocol | Provided where feasible | Enables reconstruction of the benchmark protocol            |
-| Pretrained checkpoints              | Released where feasible | Large files may be hosted through GitHub Releases or Zenodo |
-| Scripts and configs                 | Released                | Main reproducibility pathway                                |
-| Conda environment                   | Released                | `environment.yml` and `environment_full.txt`                |
-
-This repository aims to provide the most reproducible alternative possible when full raw data release is not feasible.
-
----
-
-## 12. Permanent archive and DOI
-
-A permanent archive will be created through GitHub Releases and Zenodo.
-
-Current repository:
-
-```text
-https://github.com/WendyCV/Disease_Representation_Learning
-```
-
-Planned permanent archive:
-
-```text
-GitHub release: v1.0-tvc-submission
-Zenodo DOI: to be added after Zenodo archiving
-```
-
-After creating the Zenodo archive, replace the placeholder above with the DOI, for example:
-
-```text
-https://doi.org/10.5281/zenodo.xxxxxxx
-```
-
----
-
-## 13. Citation
-
-If you use this repository or build upon FGCRL, please cite the repository and the manuscript once it becomes available.
-
-### Manuscript citation
-
-```bibtex
-@misc{liu2026fgcrl,
-  title  = {FGCRL: Foreground-Prior-Guided Self-Supervised Pretraining for Lesion-Sensitive Visual Representation Learning in Complex Natural Scenes},
-  author = {Liu, Wenjuan and Mohamed, Ahmad Sufril Azlan and Osman, Mohd Azam and Kie, Kim Hwa and Wong, Chow Jeng},
-  year   = {2026},
-  note   = {Manuscript submitted to The Visual Computer. Under review.}
-}
-```
-
-### Code repository citation
-
-```bibtex
-@misc{liu2026fgcrl_code,
-  title        = {Disease Representation Learning: Code for FGCRL},
-  author       = {Liu, Wenjuan and Mohamed, Ahmad Sufril Azlan and Osman, Mohd Azam and Kie, Kim Hwa and Wong, Chow Jeng},
-  year         = {2026},
-  howpublished = {\url{https://github.com/WendyCV/Disease_Representation_Learning}},
-  note         = {Code repository for the manuscript submitted to The Visual Computer. Zenodo DOI to be added.}
-}
-```
-
-After the manuscript is accepted or published, please update the journal, volume, pages, DOI, and Zenodo DOI.
-
----
-
-## 14. License
-
-This project is released under the MIT License for academic research use. Please check the `LICENSE` file before using the code for commercial applications.
-
-The YOLO base weights, public datasets, SAM2-related components, and third-party tools may be subject to their own licenses. Users are responsible for following the original licenses of external datasets, pretrained detectors, segmentation tools, and third-party dependencies.
-
----
-
-## 15. Acknowledgements
-
-This work is part of a research project on lesion-sensitive visual representation learning for diseased leaf detection in complex natural scenes. We thank the collaborators and contributors who supported field data collection, annotation checking, implementation, experimental validation, and manuscript preparation.
