@@ -63,7 +63,7 @@ The manuscript evaluates FGCRL on the following datasets. Users should download 
 | ------------------- | ------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Durian Leaf Disease | Bounding boxes     | In-domain detection                                                               | [Roboflow Universe](https://universe.roboflow.com/mintra/durian-leaf2)                                                              |
 | PlantDoc            | Bounding boxes     | Cross-dataset single-class and multi-class detection                              | [paper DOI](https://doi.org/10.1145/3371158.3371196) |
-| PlantSeg            | Segmentation masks | Cross-dataset single-class and multi-class detection after mask-to-box conversion | [dataset paper](https://www.nature.com/articles/s41597-025-06513-4)                                                                 |
+| PlantSeg            | Segmentation masks | Cross-dataset single-class and multi-class detection after mask-to-box conversion | [paper DOI](https://www.nature.com/articles/s41597-025-06513-4)                                                                 |
 
 
 ### 3.1 PlantDoc preparation
