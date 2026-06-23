@@ -114,17 +114,7 @@ Filtering decisions should be recorded in audit files whenever possible.
 
 ### 3.3 Private orchard data
 
-The private durian orchard images used for unlabeled pretraining and in-domain validation are not fully redistributed in this repository because of field-data ownership, farm collaboration agreements, and dataset-use restrictions. To improve reproducibility, we provide the most reproducible alternatives possible:
-
-* preprocessing scripts;
-* foreground-prior generation scripts;
-* dataset format specifications;
-* split construction protocol;
-* configuration files;
-* evaluation scripts;
-* result folders and logs where available.
-
-Researchers may reproduce the pipeline using their own unlabeled diseased leaf images and the same data organization described below.
+The private durian orchard images used for unlabeled pretraining and in-domain validation are not fully redistributed in this repository because of field-data ownership, and dataset-use restrictions. 
 
 ### 3.4 Expected YOLO dataset format
 
@@ -253,7 +243,7 @@ python tools/generate_foreground_masks_with_qc.py \
 
 The generated masks are coarse foreground priors. They are not lesion annotations and should not be interpreted as ground-truth segmentation labels.
 
-### 6.3 Run Stage-1 pretraining
+### 5.3 Run Stage-1 pretraining
 
 ```bash
 python train_stage1.py --config configs/ssl_config.yaml
